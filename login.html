@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HackOps Academy | Access Portal</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: radial-gradient(circle at 30% 20%, #001, #000);
+      color: #0ff;
+      font-family: 'Courier New', monospace;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .login-box {
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid #0ff;
+      border-radius: 15px;
+      padding: 40px;
+      box-shadow: 0 0 20px #0ff;
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+    }
+    input {
+      background: #000;
+      border: 1px solid #0ff;
+      color: #0ff;
+      border-radius: 8px;
+      padding: 10px;
+      width: 100%;
+      margin-top: 15px;
+      text-align: center;
+    }
+    button {
+      background: #0ff;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #00ffaa;
+    }
+    #error {
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h2 class="text-2xl font-bold mb-4">HackOps Access Gate</h2>
+    <p>Enter your secret access code</p>
+    <input id="accessCode" type="password" placeholder="Enter access code">
+    <button id="loginBtn">Unlock</button>
+    <p id="error"></p>
+  </div>
+
+  <script>
+    // Encrypted secret key for verification (AES)
+    const encryptedAuth = "U2FsdGVkX1+uE4A8VFT3lGo0PQ2r8hCOy/sdYLDq7hE="; 
+    // Only the correct password can decrypt this message correctly
+
+    document.getElementById('loginBtn').addEventListener('click', () => {
+      const code = document.getElementById('accessCode').value.trim();
+      try {
+        const bytes = CryptoJS.AES.decrypt(encryptedAuth, code);
+        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+
+        if (decrypted === "access_granted") {
+          localStorage.setItem("hackopsAccess", code);
+          window.location.href = "index.html";
+        } else {
+          document.getElementById('error').innerText = "❌ Invalid access code";
+        }
+      } catch (err) {
+        document.getElementById('error').innerText = "⚠️ Error: Invalid code format";
+      }
+    });
+  </script>
+</body>
+</html>
