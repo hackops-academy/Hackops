@@ -21,8 +21,8 @@
   </div>
 
   <script>
-    // <<< REPLACE this with your exact deployed /exec URL >>>
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzkJPFUrayYagnNN0myJoeStJyWJUzbT0Xg8ht8k8gbHtY-awgo5Mjt1QGZr7K71AQstQ/exec";
+    // <<< Your updated Apps Script web app URL >>>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxlYp8esvgLMFuI8Ds3E1anfAymFb3zbKg3YCCRMQIZqU2rhCTqzEtT_rDhr8Pt2Gm_dA/exec";
 
     function showError(msg){
       document.getElementById('error').innerText = msg;
@@ -49,7 +49,6 @@
 
         clearTimeout(timeout);
 
-        // Diagnose HTTP-level problems first
         if (!resp.ok) {
           const txt = await resp.text().catch(()=>'<no-body>');
           console.error('HTTP error', resp.status, resp.statusText, txt);
@@ -57,15 +56,12 @@
           return;
         }
 
-        // Try to parse JSON, fallback to raw text
-        let data;
         const text = await resp.text();
-        try { data = JSON.parse(text); } catch(e) { data = null; }
+        let data = null;
+        try { data = JSON.parse(text); } catch(e){}
 
         console.log('Server raw response:', text);
 
-        // two possible response shapes handled:
-        // 1) { success: true }  or 2) {"success":true} or plain "OK"/"DENIED"
         if (data && (data.success === true || data.ok === true)) {
           localStorage.setItem("hackopsAccess", code);
           localStorage.setItem("hackopsEmail", email);
@@ -73,7 +69,6 @@
           return;
         }
 
-        // fallback text checks
         const txtLower = (text || '').toLowerCase();
         if (txtLower.includes('ok') || txtLower.includes('success')) {
           localStorage.setItem("hackopsAccess", code);
@@ -82,14 +77,13 @@
           return;
         }
 
-        // otherwise show reason
         showError('Invalid email or access key.\nServer response:\n' + (text || '<empty>'));
       } catch (err) {
         console.error('Fetch error:', err);
         if (err.name === 'AbortError') {
           showError('Request timed out (15s). Possible network/CORS issue.');
         } else {
-          showError('Server connection failed.\nCheck console (F12) for details.');
+          showError('Server connection failed.\nOpen DevTools (F12) and copy console/network errors here.');
         }
       }
     });
