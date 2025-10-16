@@ -1,92 +1,74 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="utf-8" />
-  <title>HackOps Access Gate</title>
+  <meta charset="utf-8">
+  <title>HackOps Login (Static)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <style>
-    body { background:#000; color:#0ff; font-family:monospace; display:flex; align-items:center; justify-content:center; height:100vh; }
-    .box { background:rgba(0,0,0,.75); border:1px solid #0ff; padding:30px; border-radius:10px; width:360px; text-align:center; }
-    input{ width:100%; padding:10px; margin-top:12px; background:#000; border:1px solid #0ff; color:#0ff; border-radius:8px }
-    button{ margin-top:14px; padding:10px 16px; border-radius:8px; background:#0ff; color:#000; border:none; font-weight:bold; cursor:pointer }
-    #error{ color:#ff6b6b; margin-top:8px; white-space:pre-wrap }
+    body{background:#000;color:#0ff;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh}
+    .box{background:rgba(0,0,0,.75);border:1px solid #0ff;padding:22px;border-radius:10px;width:420px;text-align:center}
+    input{width:100%;padding:10px;margin-top:12px;background:#000;border:1px solid #0ff;color:#0ff;border-radius:8px}
+    button{margin-top:12px;padding:10px 14px;border-radius:8px;background:#0ff;color:#000;border:none;font-weight:bold}
+    #msg{color:#ff6b6b;margin-top:10px;white-space:pre-wrap}
   </style>
 </head>
 <body>
   <div class="box">
     <h2>HackOps — Login</h2>
-    <input id="email" type="email" placeholder="Enter your email" autocomplete="off" />
-    <input id="accessCode" type="password" placeholder="Enter your access key" autocomplete="off" />
-    <button id="loginBtn">Unlock</button>
-    <div id="error"></div>
+    <input id="email" type="email" placeholder="Your email (user@example.com)" />
+    <input id="password" type="password" placeholder="Your password / key" />
+    <button id="login">Unlock</button>
+    <div id="msg"></div>
   </div>
 
-  <script>
-    // <<< Your updated Apps Script web app URL >>>
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxlYp8esvgLMFuI8Ds3E1anfAymFb3zbKg3YCCRMQIZqU2rhCTqzEtT_rDhr8Pt2Gm_dA/exec";
+<script>
+const USERS_FILE = 'users.json'; // file in your repo
+const SALT = 'CHANGE_THIS_SALT_TO_A_SECRET'; // MUST match generator's salt
 
-    function showError(msg){
-      document.getElementById('error').innerText = msg;
+function show(msg){ document.getElementById('msg').innerText = msg; }
+
+async function loadUsers(){
+  const res = await fetch(USERS_FILE, {cache:'no-store'});
+  if(!res.ok) throw new Error('Failed to load users.json: ' + res.status);
+  return res.json();
+}
+
+document.getElementById('login').addEventListener('click', async ()=>{
+  show('');
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const pwd = document.getElementById('password').value;
+
+  if(!email || !pwd){ show('Enter email and password'); return; }
+
+  try {
+    const users = await loadUsers();
+    const entry = users.find(u => u.email === email);
+    if(!entry){ show('No account for this email'); return; }
+
+    // compute hash with same salt
+    const computedHash = CryptoJS.SHA256(SALT + pwd).toString();
+
+    if (computedHash !== entry.pwd_hash) {
+      show('Incorrect password');
+      return;
     }
 
-    document.getElementById('loginBtn').addEventListener('click', async () => {
-      showError('');
-      const email = document.getElementById('email').value.trim();
-      const code = document.getElementById('accessCode').value.trim();
-
-      if (!email || !code) { showError('Enter both email and key'); return; }
-
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(()=> controller.abort(), 15000); // 15s
-
-        const resp = await fetch(WEB_APP_URL, {
-          method: "POST",
-          mode: "cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email, key: code }),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeout);
-
-        if (!resp.ok) {
-          const txt = await resp.text().catch(()=>'<no-body>');
-          console.error('HTTP error', resp.status, resp.statusText, txt);
-          showError(`Server returned HTTP ${resp.status} ${resp.statusText}\nResponse: ${txt}`);
-          return;
-        }
-
-        const text = await resp.text();
-        let data = null;
-        try { data = JSON.parse(text); } catch(e){}
-
-        console.log('Server raw response:', text);
-
-        if (data && (data.success === true || data.ok === true)) {
-          localStorage.setItem("hackopsAccess", code);
-          localStorage.setItem("hackopsEmail", email);
-          window.location.href = "index.html";
-          return;
-        }
-
-        const txtLower = (text || '').toLowerCase();
-        if (txtLower.includes('ok') || txtLower.includes('success')) {
-          localStorage.setItem("hackopsAccess", code);
-          localStorage.setItem("hackopsEmail", email);
-          window.location.href = "index.html";
-          return;
-        }
-
-        showError('Invalid email or access key.\nServer response:\n' + (text || '<empty>'));
-      } catch (err) {
-        console.error('Fetch error:', err);
-        if (err.name === 'AbortError') {
-          showError('Request timed out (15s). Possible network/CORS issue.');
-        } else {
-          showError('Server connection failed.\nOpen DevTools (F12) and copy console/network errors here.');
-        }
-      }
-    });
-  </script>
+    // decrypt content using user's password
+    try {
+      const plain = CryptoJS.AES.decrypt(entry.content, pwd).toString(CryptoJS.enc.Utf8);
+      if(!plain) throw new Error('empty_decrypt');
+      // Store decrypted content in localStorage and redirect to index.html
+      localStorage.setItem('hackops_decrypted_content', plain);
+      localStorage.setItem('hackops_email', email);
+      window.location.href = 'index.html';
+    } catch (e) {
+      show('Failed to decrypt content (wrong key?)');
+    }
+  } catch (err) {
+    console.error(err);
+    show('Could not load user data (check users.json path)');
+  }
+});
+</script>
 </body>
 </html>
