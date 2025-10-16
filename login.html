@@ -1,88 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HackOps Academy | Access Portal</title>
+  <meta charset="utf-8" />
+  <title>HackOps Access Gate</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     body {
-      background: radial-gradient(circle at 30% 20%, #001, #000);
+      background: #000;
       color: #0ff;
-      font-family: 'Courier New', monospace;
-      height: 100vh;
+      font-family: monospace;
       display: flex;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
+      height: 100vh;
     }
-    .login-box {
-      background: rgba(0, 0, 0, 0.7);
+    .box {
+      background: rgba(0, 0, 0, .75);
       border: 1px solid #0ff;
-      border-radius: 15px;
-      padding: 40px;
-      box-shadow: 0 0 20px #0ff;
+      padding: 30px;
+      border-radius: 10px;
+      width: 340px;
       text-align: center;
-      width: 90%;
-      max-width: 400px;
     }
     input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 12px;
       background: #000;
       border: 1px solid #0ff;
       color: #0ff;
       border-radius: 8px;
-      padding: 10px;
-      width: 100%;
-      margin-top: 15px;
-      text-align: center;
     }
     button {
+      margin-top: 14px;
+      padding: 10px 16px;
+      border-radius: 8px;
       background: #0ff;
       color: #000;
       border: none;
-      padding: 10px 20px;
-      border-radius: 8px;
-      margin-top: 20px;
       font-weight: bold;
-      transition: 0.3s;
-    }
-    button:hover {
-      background: #00ffaa;
+      cursor: pointer;
     }
     #error {
-      color: red;
-      margin-top: 10px;
+      color: #ff6b6b;
+      margin-top: 8px;
     }
   </style>
 </head>
 <body>
-  <div class="login-box">
-    <h2 class="text-2xl font-bold mb-4">HackOps Access Gate</h2>
-    <p>Enter your secret access code</p>
-    <input id="accessCode" type="password" placeholder="Enter access code">
+  <div class="box">
+    <h2>HackOps — Login</h2>
+    <input id="email" type="email" placeholder="Enter your email" autocomplete="off" />
+    <input id="accessCode" type="password" placeholder="Enter your access key" autocomplete="off" />
     <button id="loginBtn">Unlock</button>
-    <p id="error"></p>
+    <div id="error"></div>
   </div>
 
   <script>
-    // Encrypted secret key for verification (AES)
-    const encryptedAuth = "U2FsdGVkX1+uE4A8VFT3lGo0PQ2r8hCOy/sdYLDq7hE="; 
-    // Only the correct password can decrypt this message correctly
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzkJPFUrayYagnNN0myJoeStJyWJUzbT0Xg8ht8k8gbHtY-awgo5Mjt1QGZr7K71AQstQ/exec";
 
-    document.getElementById('loginBtn').addEventListener('click', () => {
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim();
       const code = document.getElementById('accessCode').value.trim();
-      try {
-        const bytes = CryptoJS.AES.decrypt(encryptedAuth, code);
-        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+      const errorEl = document.getElementById('error');
+      errorEl.innerText = '';
 
-        if (decrypted === "access_granted") {
+      if (!email || !code) {
+        errorEl.innerText = 'Please enter both email and key';
+        return;
+      }
+
+      try {
+        // Send data to Google Sheet API
+        const response = await fetch(WEB_APP_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email, key: code })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          // Store key locally for decryption in index.html
           localStorage.setItem("hackopsAccess", code);
+          localStorage.setItem("hackopsEmail", email);
           window.location.href = "index.html";
         } else {
-          document.getElementById('error').innerText = "❌ Invalid access code";
+          errorEl.innerText = "❌ Invalid email or access key";
         }
       } catch (err) {
-        document.getElementById('error').innerText = "⚠️ Error: Invalid code format";
+        console.error(err);
+        errorEl.innerText = "⚠️ Server connection failed";
       }
     });
   </script>
