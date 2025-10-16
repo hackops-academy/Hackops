@@ -3,48 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <title>HackOps Access Gate</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <style>
-    body {
-      background: #000;
-      color: #0ff;
-      font-family: monospace;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-    .box {
-      background: rgba(0, 0, 0, .75);
-      border: 1px solid #0ff;
-      padding: 30px;
-      border-radius: 10px;
-      width: 340px;
-      text-align: center;
-    }
-    input {
-      width: 100%;
-      padding: 10px;
-      margin-top: 12px;
-      background: #000;
-      border: 1px solid #0ff;
-      color: #0ff;
-      border-radius: 8px;
-    }
-    button {
-      margin-top: 14px;
-      padding: 10px 16px;
-      border-radius: 8px;
-      background: #0ff;
-      color: #000;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    #error {
-      color: #ff6b6b;
-      margin-top: 8px;
-    }
+    body { background:#000; color:#0ff; font-family:monospace; display:flex; align-items:center; justify-content:center; height:100vh; }
+    .box { background:rgba(0,0,0,.75); border:1px solid #0ff; padding:30px; border-radius:10px; width:360px; text-align:center; }
+    input{ width:100%; padding:10px; margin-top:12px; background:#000; border:1px solid #0ff; color:#0ff; border-radius:8px }
+    button{ margin-top:14px; padding:10px 16px; border-radius:8px; background:#0ff; color:#000; border:none; font-weight:bold; cursor:pointer }
+    #error{ color:#ff6b6b; margin-top:8px; white-space:pre-wrap }
   </style>
 </head>
 <body>
@@ -57,40 +21,76 @@
   </div>
 
   <script>
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyQeB6QjH0uBYR82Pl9zTTyLF0hzYfRgqoRwMeGtMKxUiXTH1U2BoXP1oCvFBeICYT88g/exec";
+    // <<< REPLACE this with your exact deployed /exec URL >>>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzkJPFUrayYagnNN0myJoeStJyWJUzbT0Xg8ht8k8gbHtY-awgo5Mjt1QGZr7K71AQstQ/exec";
+
+    function showError(msg){
+      document.getElementById('error').innerText = msg;
+    }
 
     document.getElementById('loginBtn').addEventListener('click', async () => {
+      showError('');
       const email = document.getElementById('email').value.trim();
       const code = document.getElementById('accessCode').value.trim();
-      const errorEl = document.getElementById('error');
-      errorEl.innerText = '';
 
-      if (!email || !code) {
-        errorEl.innerText = 'Please enter both email and key';
-        return;
-      }
+      if (!email || !code) { showError('Enter both email and key'); return; }
 
       try {
-        // Send data to Google Sheet API
-        const response = await fetch(WEB_APP_URL, {
+        const controller = new AbortController();
+        const timeout = setTimeout(()=> controller.abort(), 15000); // 15s
+
+        const resp = await fetch(WEB_APP_URL, {
           method: "POST",
+          mode: "cors",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email, key: code })
+          body: JSON.stringify({ email: email, key: code }),
+          signal: controller.signal
         });
 
-        const result = await response.json();
+        clearTimeout(timeout);
 
-        if (result.success) {
-          // Store key locally for decryption in index.html
+        // Diagnose HTTP-level problems first
+        if (!resp.ok) {
+          const txt = await resp.text().catch(()=>'<no-body>');
+          console.error('HTTP error', resp.status, resp.statusText, txt);
+          showError(`Server returned HTTP ${resp.status} ${resp.statusText}\nResponse: ${txt}`);
+          return;
+        }
+
+        // Try to parse JSON, fallback to raw text
+        let data;
+        const text = await resp.text();
+        try { data = JSON.parse(text); } catch(e) { data = null; }
+
+        console.log('Server raw response:', text);
+
+        // two possible response shapes handled:
+        // 1) { success: true }  or 2) {"success":true} or plain "OK"/"DENIED"
+        if (data && (data.success === true || data.ok === true)) {
           localStorage.setItem("hackopsAccess", code);
           localStorage.setItem("hackopsEmail", email);
           window.location.href = "index.html";
-        } else {
-          errorEl.innerText = "❌ Invalid email or access key";
+          return;
         }
+
+        // fallback text checks
+        const txtLower = (text || '').toLowerCase();
+        if (txtLower.includes('ok') || txtLower.includes('success')) {
+          localStorage.setItem("hackopsAccess", code);
+          localStorage.setItem("hackopsEmail", email);
+          window.location.href = "index.html";
+          return;
+        }
+
+        // otherwise show reason
+        showError('Invalid email or access key.\nServer response:\n' + (text || '<empty>'));
       } catch (err) {
-        console.error(err);
-        errorEl.innerText = "⚠️ Server connection failed";
+        console.error('Fetch error:', err);
+        if (err.name === 'AbortError') {
+          showError('Request timed out (15s). Possible network/CORS issue.');
+        } else {
+          showError('Server connection failed.\nCheck console (F12) for details.');
+        }
       }
     });
   </script>
