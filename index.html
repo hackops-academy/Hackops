@@ -1,43 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HackOps Academy | Course Portal</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-  <style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HackOps Academy - Dashboard</title>
+<style>
     body {
-      background: #000;
-      color: #0ff;
-      font-family: 'Courier New', monospace;
-      padding: 30px;
+        background-color: #0a0a0a;
+        color: #00ff99;
+        font-family: 'Courier New', monospace;
+        text-align: center;
+        padding-top: 100px;
     }
-  </style>
+</style>
 </head>
 <body>
-  <h1>HackOps Academy: Exclusive Course Access</h1>
-  <hr><br>
-  <div id="content"></div>
-
-  <script>
-    const key = localStorage.getItem("hackopsAccess");
-    const encryptedContent = "U2FsdGVkX1/Cu1S+TV/g2b0J1lZ5nEF4AyDVE7DFRW4E+lwKhfX9pm6u34mS63h+";
-    
-    if (!key) {
-      alert("Access denied! Please login first.");
-      window.location.href = "login.html";
-    } else {
-      try {
-        const bytes = CryptoJS.AES.decrypt(encryptedContent, key);
-        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-        if (!decrypted) throw new Error();
-        document.getElementById("content").innerHTML = decrypted;
-      } catch {
-        alert("Invalid or expired key. Returning to login.");
-        localStorage.removeItem("hackopsAccess");
-        window.location.href = "login.html";
-      }
-    }
-  </script>
+<h1>Welcome to HackOps Academy</h1>
+<p id="welcomeMsg"></p>
+<script>
+  // Check if user is logged in
+  const userEmail = localStorage.getItem("userEmail");
+  if (!userEmail) {
+    alert("Access denied! Please login first.");
+    window.location.href = "login.html";
+  } else {
+    document.getElementById("welcomeMsg").innerText = `Logged in as ${userEmail}`;
+  }
+</script>
 </body>
 </html>
